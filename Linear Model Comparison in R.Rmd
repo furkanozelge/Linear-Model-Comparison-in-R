@@ -1,0 +1,327 @@
+---
+title: 'ADA 442: Statistical Learning'
+author: "<Furkan ÖZELGE (14758028780)>"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  word_document:
+    toc: yes
+  pdf_document:
+    fig_width: 6
+    fig_height: 4
+    number_sections: yes
+    toc: yes
+subtitle: 'Homework 2: Comparison of different linear models'
+---
+
+```{r setup, include=FALSE, echo=F, warning=F, message=F}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## ABOUT REPRODUCIBILITY
+
+```{r}
+# FOR REPRODUCIBILITY
+set.seed(28780)
+# ALERT: YOU NEED TO USE YOUR STUDENT NUMBER LAST 5 DIGITS 
+# HERE instead of 442 MAKE SURE THAT YOU CHANGED 
+# BEFORE STARTING TO YOUR ANALYSIS
+
+# THIS PART IS IMPORTANT FOR SPLITTING YOUR DATA so that 
+# EACH PERSON HAS DIFFERENT SPLITS AND EVEN IF YOU USE 
+# THE SAME DATA SET YOUR RESULTS WILL BE A BIT DIFFERENT
+
+# ALWAYS USE 80% (TRAINING) - 20% (TESTING) SPLIT RULE in YOUR ANALYSIS
+
+# BUT MOST IMPORTANTLY WHEN I RUN YOUR .Rmd file in my computer, 
+# I NEED TO SEE THE SAME RESULTS THAT YOU MENTIONED IN YOUR PDF REPORT !
+```
+
+## HOMEWORK 2
+
+You should aim to use this section to run different linear models including Ridge and Lasso in `R` and interpret the corresponding output. You will need to conduct such analyses on the available data set below (HINT: Try to focus on fitting a model to explain **Accept** variable (Number of applications accepted))
+
+```{r}
+#install.packages("ISLR2")
+library(ISLR2)
+data("College")
+# head(College)
+summary(College) # Ranges of predictors are different !!!
+
+# response dist.
+hist(College$Accept)
+```
+
+1. Consider any necessary **data-preprocessing process** on the data set (**HINT:** Ranges of predictors are different and the response variable should be approximately normal !!!)
+```{r}
+#package install first.
+#install.packages("ISLR2")
+#load library
+library(ISLR2)
+#taking data and summary and take its histogram
+data("College")
+summary(College) # Ranges of predictors are different !!!
+hist(College$Accept)
+College = na.omit(College)
+
+#  response distribution
+hist(College$Accept)
+
+# yes =1 and no = 0 we convert variable to numeric. 
+College$Private = as.numeric(unclass(College$Private) - 1.0)
+
+# We want to make better predictions, so I need to normalize the variables, and I do this with log.
+College[,2:18] = log(College[,2:18])
+#summary and histogram
+summary(College)
+hist(College$Accept)
+
+# i want to find outlier's values and indexes. 
+out = boxplot.stats(College$Accept)$out
+out_ind = which(College$Accept %in% c(out))
+out_ind
+College[out_ind, "Accept"]
+
+
+```
+
+
+2. Fit a **multiple linear regression model** after partitioning your data set into training and testing 
+(you can apply 80-20 % rule). After fitting the model, **make predictions on testing data** and compare 
+with the original observations. 
+```{r}
+#ikinci soru
+
+# Data partitioning %80 %20 rate.
+trainIndex = sample(seq_len(nrow(College)), round(0.8*nrow(College)))
+# my train data
+trainData = College[trainIndex, ]
+# my test data
+testData = College[-trainIndex, ]
+#dimension
+dim(trainData)
+dim(testData)
+```
+When I normalized the response value, I got inaccurate exaggeration results, but we have to evolve all the data we have to the normal distribution to produce more accurate and confident estimates and realistic P values that require data preprocessing. I can achieve this using 0 and 1. This is the method I will use. Thanks to 0 and 1, we discover two distant and different values in our searches. Grubbs.test() allows us to use the Grubbs test in R. We use the Grubbs test to determine whether the smallest or largest value of a data set is an outlier.
+```{r}
+# multiple linear regression model
+
+lm.fit_mult = lm(trainData$Accept ~ trainData$Apps + trainData$Enroll + trainData$Top10perc + trainData$Outstate + trainData$Books + trainData$S.F.Ratio , data = trainData)
+summary(lm.fit_mult)
+# fitted model's predict
+Pred = predict(lm.fit_mult, type = "response")
+```
+
+
+3. Using the `plot` command, comment on the **validity of the assumption of the model** that you fit in Question 2 (Note before using the `plot` command you may wish to specify a 2x2 graphics window using `par(mfrow = c(2, 2))`).
+```{r}
+par(mfrow = c(2, 2))
+plot(lm.fit_mult)
+plot(predict(lm.fit_mult), residuals(lm.fit_mult))
+```
+The difference between the train value and my guess is very small. This shows that I have a successful prediction. Our line is straight, and there are no trends. Hence the Residual vs Fitted plog is a perfect selection. Residuals vs Leverage plot is over 0.5. At the same time, there is no perfect trend in the Scale-Location plot. In addition, according to my Q-Q chart, the data showed a normal distribution. There is only a small tail. This is the part that we want expendable.
+
+4. Consider **the subset selection** idea to understand which of the variables are selected mostly when you implement; **i) best subset**, **ii) forward stepwise** and **iii) backward stepwise** algorithms. Try to figure out **optimal numbers in each selection algorithm**, by considering the **minimum BIC** performance metric! 
+```{r}
+#package installs
+#install.packages("caret")
+#install.packages("lattice")
+#install.packages("ggplot2")
+#install.packages("tidyverse")
+#import libraries
+library(caret)
+library(tidyverse)
+ 
+
+train_control = trainControl(method = "cv",number = 10)
+ 
+model = train(Accept ~ Apps + Enroll + Top10perc + Outstate + Books + S.F.Ratio, trainData, 
+               method = "lm",
+               trControl = train_control)
+
+summary(model)
+```
+We will be able to build a good model.
+```{r}
+
+```
+
+
+```{r}
+
+#install.packages("leaps")
+library(leaps)
+
+# predictors using for linear model fitting
+regfit.full = regsubsets(trainData$Accept ~ trainData$Private + trainData$Apps + trainData$Enroll + trainData$Top10perc + trainData$Top25perc + trainData$F.Undergrad + trainData$P.Undergrad + trainData$Outstate + trainData$Room.Board + trainData$Books + trainData$Personal + trainData$PhD + trainData$Terminal + trainData$S.F.Ratio  + trainData$Expend + trainData$Grad.Rate, data = trainData, nvmax = 18, method = "exhaustive")
+summary(regfit.full)
+plot(regfit.full)
+
+reg.summary = summary(regfit.full)
+paste(data.frame(
+  Adj.R2 = which.max(reg.summary$adjr2),
+  CP = which.min(reg.summary$cp),
+  BIC = which.min(reg.summary$bic)
+))
+
+# which.max(reg.summary$adjr2)
+plot(reg.summary$adjr2 , xlab = "Number of Variables", ylab = "Adjusted RSq", type = "l")
+points (11, reg.summary$adjr2[11] , col = "red", cex = 2, pch = 20)
+
+# which.min(reg.summary$cp)
+plot(reg.summary$cp, xlab = "Number of Variables", ylab = "Cp", type = "l")
+points (9, reg.summary$cp[9] , col = "red", cex = 2, pch = 20)
+
+# which.min(reg.summary$bic)
+plot(reg.summary$bic , xlab = "Number of Variables", ylab = "BIC", type = "l")
+points (6, reg.summary$bic [6], col = "red", cex = 2, pch = 20)
+
+```
+
+I need a better approach because when I approach with the Best Model approach, different results appear according to the value I measure.
+
+```{r}
+
+```
+
+
+
+```{r}
+
+# fit linear model using the predictors
+regfit.fwd = regsubsets(trainData$Accept ~ trainData$Private + trainData$Apps + trainData$Enroll + trainData$Top10perc + trainData$Top25perc + trainData$F.Undergrad + trainData$P.Undergrad + trainData$Outstate + trainData$Room.Board + trainData$Books + trainData$Personal + trainData$PhD + trainData$Terminal + trainData$S.F.Ratio  + trainData$Expend + trainData$Grad.Rate, data = trainData, nvmax = 18, method = "forward")
+summary(regfit.fwd)
+plot(regfit.fwd)
+
+```
+Forward
+
+
+```{r}
+
+# fitting linear model with predictors
+regfit.bwd = regsubsets(trainData$Accept ~ trainData$Private + trainData$Apps + trainData$Enroll + trainData$Top10perc + trainData$Top25perc + trainData$F.Undergrad + trainData$P.Undergrad + trainData$Outstate + trainData$Room.Board + trainData$Books + trainData$Personal + trainData$PhD + trainData$Terminal + trainData$S.F.Ratio  + trainData$Expend + trainData$Grad.Rate, data = trainData, nvmax = 18, method = "backward")
+summary(regfit.bwd)
+
+plot(regfit.bwd)
+
+```
+Backward
+
+```{r}
+
+coef(regfit.fwd, 16)
+
+coef(regfit.bwd, 16)
+
+```
+The comparision result is like this.
+
+
+5. Fit a **ridge regression** model on the training set by **using the all predictors**, with $\lambda$ parameter chosen by **cross-validation** beforehand. After building the model, report the test error obtained.
+
+```{r}
+
+# Data proprocessing for Ridge Regression.
+x = model.matrix(Accept ~., trainData)[,-1]
+y = trainData$Accept
+y = y[is.na(y) == FALSE]
+
+
+#  Ridge Regression
+#install.packages("glmnet")
+library(glmnet)
+
+grid = 10^seq(10, -2, length = 100)
+ridge.mod = glmnet(x, y, alpha = 0, lambda = grid, standardize = FALSE)
+
+summary(ridge.mod)
+
+# k-fold cross-validation for  find optimal lambda value
+cv_model = cv.glmnet(x, y, alpha = 0)
+
+# optimal lambda value that minimizes test MSE
+best_lambda = cv_model$lambda.min
+best_lambda
+
+# Produce plot of test MSE by lambda value
+plot(cv_model) 
+
+# Find coefficients of best model
+best_model = glmnet(x, y, alpha = 0, lambda = best_lambda)
+coef(best_model)
+
+# Produce Ridge trace plot
+plot(ridge.mod, xvar = "lambda")
+
+# Use fitted best model to make predictions
+y_predicted = predict(ridge.mod, s = best_lambda, newx = x)
+
+# Find SST and SSE
+sst = sum((y - mean(y))^2)
+sse = sum((y_predicted - y)^2)
+
+# Find R-Squared
+rsq = 1 - sse/sst
+rsq
+
+```
+
+
+6. Fit a **LASSO regression** model on the training set by **using the all predictors**, with $\lambda$ parameter chosen by **cross-validation** beforehand. After building the model, report the test error obtained.
+```{r}
+
+# Data proprocessing for Lasso Regression.
+x = model.matrix(Accept ~., trainData)[,-1]
+y = trainData$Accept
+y = y[is.na(y) == FALSE]
+# Perform k-fold cross-validation to find optimal lambda value
+cv_model = cv.glmnet(x, y, alpha = 1, standardize = FALSE)
+# finding optimal lambda value that minimizes test MSE
+best_lambda = cv_model$lambda.min
+best_lambda
+# Produce plot of test MSE by lambda value
+plot(cv_model) 
+# Find coefficients of best model
+best_model = glmnet(x, y, alpha = 1, lambda = best_lambda)
+coef(best_model)
+# Use fitted best model to make predictions
+y_predicted = predict(best_model, s = best_lambda, newx = x)
+# finding SST and SSE
+sst = sum((y - mean(y))^2)
+sse = sum((y_predicted - y)^2)
+# finding R-Squared
+rsq = 1 - sse/sst
+rsq
+
+```
+
+
+7. Comment on the above obtained results. How accurately can we predict the number of college applications received (Accept variable)? In terms of test error calculations you derived, is there much difference among the above-considered linear models ? **Which one is more preferable** ?
+
+Ridge Regression has a better R-squared value. Therefore, Ridge Regression should be preferred. The differences between Ridge Regression and Lasso Regression are Ridge regression, which reduces all of our coefficients towards zero and works in this way. But Lasso Regression tries to set all coefficients to 0. Therefore, it has the ability to remove estimators from the model.
+
+\newpage
+
+
+## SOLUTIONS
+
+- MAKE SURE THAT ALL NECESSARY PACKAGES ARE ALREADY INSTALLED and READY TO USE 
+
+- You can use as many as Rcode chunks you want. In the final output, both Rcodes and your ouputs including your comments should appear in an order
+
+- Use the given R-code chunk below to make your calculations and summarize your result thereafter by adding comments on it, 
+
+
+## References 
+
+Give a list of the available sources that you used while preparing your home-work
+(If you use other resources, you can make a list here for checking & reproducibility). 
+
+For instance; 
+
+- https://www.statlearning.com/
+- https://lms.tedu.edu.tr/
+- https://www.statisticshowto.com/
+
+
+
